@@ -1,8 +1,9 @@
 # Simple ERC20 staking - Hardhat
 
-This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, a sample script that deploys that contract, and an example of a task implementation, which simply lists the available accounts.
+Step
 
-Try running some of the following tasks:
+1. clone the github repository
+2. run ```shell npm install ```
 
 ```shell
 npx hardhat accounts
