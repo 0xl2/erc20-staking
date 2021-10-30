@@ -25,15 +25,10 @@ describe("Simple Staking Test", () => {
         console.log("Reward token address: " + rewardToken.address);
 
         const SimpleStaking = await ethers.getContractFactory("SimpleStaking");
-        simpleStaking = await upgrades.deployProxy(SimpleStaking, [rewardToken.address], {from: owner.address, deployer: owner, unsafeAllowCustomTypes: true});
-        
+        simpleStaking = await upgrades.deployProxy(SimpleStaking, [rewardToken.address]);
         await simpleStaking.deployed();
         console.log("simple staking address: " + simpleStaking.address);
-
-        const deployedAdmin = await upgrades.erc1967.getImplementationAddress(simpleStaking.address);
-        console.log(deployedAdmin, 'ccccccccccccc');
-        // await upgrades['admin'].changeProxyAdmin(deployedAdmin, owner.address);
-
+        
         // send reward token to test account
         await stakeToken.transfer(test1.address, ethers.utils.parseUnits("10000.0", decimals));
         await stakeToken.transfer(test2.address, ethers.utils.parseUnits("10000.0", decimals));
@@ -80,7 +75,7 @@ describe("Simple Staking Test", () => {
         ).to.be.revertedWith("You didnt stake this token");
 
         await expect(
-            simpleStaking.connect(test1).unstake(stakeToken.address, ethers.utils.parseUnits("1000.0", decimals))
+            simpleStaking.connect(test1).unstake(stakeToken.address, ethers.utils.parseUnits("2000.0", decimals))
         ).to.be.revertedWith("Can not unstake over staked amount");
         
         // await expect(
@@ -107,17 +102,20 @@ describe("Simple Staking Test", () => {
 
     it("withdrawReward function", async () => {
         await expect(
-            simpleStaking.connect(test1).withdrawReward(rewardToken.address, ethers.utils.parseUnits("0.0", decimals))
+            simpleStaking.connect(test1).withdrawReward(stakeToken.address, ethers.utils.parseUnits("0.0", decimals))
         ).to.be.revertedWith("Can not withdraw nothing");
 
         await expect(
             simpleStaking.connect(test1).withdrawReward(test2.address, ethers.utils.parseUnits("1000.0", decimals))
         ).to.be.revertedWith("You dont have any reward to withdraw");
 
+        await stakeToken.connect(test1).approve(simpleStaking.address, ethers.utils.parseUnits("100.0", decimals));
+        await simpleStaking.connect(test1).stake(stakeToken.address, ethers.utils.parseUnits("100.0", decimals));
+
         await expect(
-            simpleStaking.connect(test1).withdrawReward(rewardToken.address, ethers.utils.parseUnits("1000.0", decimals))
+            simpleStaking.connect(test1).withdrawReward(stakeToken.address, ethers.utils.parseUnits("1000.0", decimals))
         ).to.be.revertedWith("Can not withdraw over reward amount");
-        
-        await simpleStaking.connect(test1).withdrawReward(rewardToken.address, ethers.utils.parseUnits("1.0", decimals));
+
+        await simpleStaking.connect(test1).withdrawReward(stakeToken.address, ethers.utils.parseUnits("10.0", decimals));
     });
 });

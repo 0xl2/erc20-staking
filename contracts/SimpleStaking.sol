@@ -92,6 +92,8 @@ contract SimpleStaking is Initializable, OwnableUpgradeable, PausableUpgradeable
 
     // 1000 is test value
     rewardInterval = 1000;
+
+    __Ownable_init();
   }
 
   // for users to stake tokens
@@ -113,6 +115,10 @@ contract SimpleStaking is Initializable, OwnableUpgradeable, PausableUpgradeable
         if(tokenRecords[ii].tokenAddr == tokenAddr) {
           Record memory selRecord = tokenRecords[ii].record;
           uint256 rewardVal = calculateReward(tokenAddr, msg.sender, selRecord.stakedAmount);
+          if(rewardVal > 0) {
+            ERC20(rwTokenAddr).transfer(address(this), rewardVal);
+          }
+          
           Records[msg.sender][ii].record = Record(selRecord.stakedAmount + amount, timestamp, selRecord.unstakedAmount, selRecord.unstakedAt, selRecord.rewardAmount + rewardVal);
 
           tokenExist = true;
@@ -139,17 +145,16 @@ contract SimpleStaking is Initializable, OwnableUpgradeable, PausableUpgradeable
     uint256 timestamp = block.timestamp;
     TokenRecord[] memory tokenRecords = Records[msg.sender];
 
+    Record memory selRecord;
+    uint256 selInd = 0;
     uint256 stakedAmount = 0;
     if(tokenRecords.length > 0) {
       for(uint256 ii = 0; ii < tokenRecords.length; ii += 1) {
         if(tokenRecords[ii].tokenAddr == tokenAddr) {
-          Record memory selRecord = tokenRecords[ii].record;
-
+          selInd = ii;
+          selRecord = tokenRecords[ii].record;
           stakedAmount = selRecord.stakedAmount;
-          require(amount <= stakedAmount, "Can not unstake over staked amount");
           
-          uint256 rewardVal = calculateReward(tokenAddr, msg.sender, selRecord.stakedAmount);
-          Records[msg.sender][ii].record = Record(selRecord.stakedAmount - amount, timestamp, selRecord.unstakedAmount + amount, timestamp, selRecord.rewardAmount + rewardVal);
           break;
         }
       }
@@ -157,35 +162,47 @@ contract SimpleStaking is Initializable, OwnableUpgradeable, PausableUpgradeable
 
     require(stakedAmount > 0, "You didnt stake this token");
 
+    require(amount <= stakedAmount, "Can not unstake over staked amount");
+    uint256 rewardVal = calculateReward(tokenAddr, msg.sender, selRecord.stakedAmount);
+    if(rewardVal > 0) {
+      ERC20(rwTokenAddr).transfer(address(this), rewardVal);
+    }
+    Records[msg.sender][selInd].record = Record(selRecord.stakedAmount - amount, timestamp, selRecord.unstakedAmount + amount, timestamp, selRecord.rewardAmount + rewardVal);
+
     emit Unstake(msg.sender, amount, tokenAddr, 0, timestamp);
   }
 
   //for users to withdraw their unstaked tokens from this contract to the caller's address
   function withdrawUnstaked(address tokenAddr, uint256 _amount) external whenNotPaused {
-    //implement your code here
     require(_amount > 0, "Can not withdraw nothing");
 
     uint256 timestamp = block.timestamp;
 
     TokenRecord[] memory tokenRecords = Records[msg.sender];
 
+    Record memory selRecord;
     uint256 unstakedAmount = 0;
+    uint256 selInd = 0;
     if(tokenRecords.length > 0) {
       for(uint256 ii = 0; ii < tokenRecords.length; ii += 1) {
         if(tokenRecords[ii].tokenAddr == tokenAddr) {
-          Record memory selRecord = tokenRecords[ii].record;
-
+          selInd = ii;
+          selRecord = tokenRecords[ii].record;
           unstakedAmount = selRecord.unstakedAmount;
-          require(_amount <= unstakedAmount, "Can not withdraw over unstaked amount");
-          
-          ERC20(rwTokenAddr).transferFrom(address(this), msg.sender, _amount);
-          Records[msg.sender][ii].record = Record(selRecord.stakedAmount, selRecord.stakedAt, unstakedAmount - _amount, timestamp, selRecord.rewardAmount);
+
           break;
         }
       }
     }
 
     require(unstakedAmount > 0, "You dont have any unstaked to withdraw");
+
+    require(_amount <= unstakedAmount, "Can not withdraw over unstaked amount");
+
+    // transfer stake token
+    ERC20(tokenAddr).approve(address(this), _amount);
+    ERC20(tokenAddr).transferFrom(address(this), msg.sender, _amount);
+    Records[msg.sender][selInd].record = Record(selRecord.stakedAmount, selRecord.stakedAt, unstakedAmount - _amount, timestamp, selRecord.rewardAmount);
 
     emit WithdrawUnstaked(msg.sender, _amount, timestamp);
   }
@@ -197,23 +214,27 @@ contract SimpleStaking is Initializable, OwnableUpgradeable, PausableUpgradeable
     TokenRecord[] memory tokenRecords = Records[msg.sender];
 
     uint256 rewardAmount = 0;
+    Record memory selRecord;
+    uint256 selInd = 0;
     if(tokenRecords.length > 0) {
       for(uint256 ii = 0; ii < tokenRecords.length; ii += 1) {
         if(tokenRecords[ii].tokenAddr == tokenAddr) {
-          Record memory selRecord = tokenRecords[ii].record;
-
+          selInd = ii;
+          selRecord = tokenRecords[ii].record;
           rewardAmount = selRecord.rewardAmount;
-          require(_amount <= rewardAmount, "Can not withdraw over reward amount");
           
-          // ERC20(rwTokenAddr).approve()
-          ERC20(rwTokenAddr).transferFrom(address(this), msg.sender, _amount);
-          Records[msg.sender][ii].record = Record(selRecord.stakedAmount, selRecord.stakedAt, selRecord.unstakedAmount, selRecord.unstakedAt, selRecord.rewardAmount - _amount);
           break;
         }
       }
     }
 
     require(rewardAmount > 0, "You dont have any reward to withdraw");
+    require(_amount <= rewardAmount, "Can not withdraw over reward amount");
+          
+    ERC20(rwTokenAddr).approve(address(this), _amount);
+    ERC20(rwTokenAddr).transferFrom(address(this), msg.sender, _amount);
+    Records[msg.sender][selInd].record = Record(selRecord.stakedAmount, selRecord.stakedAt, selRecord.unstakedAmount, selRecord.unstakedAt, selRecord.rewardAmount - _amount);
+
     emit WithdrawRewards(msg.sender, _amount, block.timestamp);
   }
 
