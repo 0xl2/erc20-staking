@@ -25,14 +25,9 @@ describe("Simple Staking Test", () => {
         console.log("Reward token address: " + rewardToken.address);
 
         const SimpleStaking = await ethers.getContractFactory("SimpleStaking");
-        simpleStaking = await upgrades.deployProxy(SimpleStaking, [rewardToken.address], {from: owner.address, deployer: owner, unsafeAllowCustomTypes: true});
-        
+        simpleStaking = await upgrades.deployProxy(SimpleStaking, [rewardToken.address]);
         await simpleStaking.deployed();
         console.log("simple staking address: " + simpleStaking.address);
-
-        const deployedAdmin = await upgrades.erc1967.getImplementationAddress(simpleStaking.address);
-        console.log(deployedAdmin, 'ccccccccccccc');
-        // await upgrades['admin'].changeProxyAdmin(deployedAdmin, owner.address);
 
         // send reward token to test account
         await stakeToken.transfer(test1.address, ethers.utils.parseUnits("10000.0", decimals));
