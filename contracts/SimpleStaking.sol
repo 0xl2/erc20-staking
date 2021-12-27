@@ -48,8 +48,6 @@ contract RewardToken is OwnableUpgradeable, ERC20Upgradeable, ERC20BurnableUpgra
 }
 
 
-//------------------------------==
-//------------------------------==
 contract SimpleStaking is Initializable, OwnableUpgradeable, PausableUpgradeable {
   //implement your code here to use SafeERC20Upgradeable and AddressUpgradeable
   using SafeERC20Upgradeable for StakeToken;
